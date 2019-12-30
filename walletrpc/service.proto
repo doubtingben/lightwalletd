@@ -3,6 +3,7 @@ package cash.z.wallet.sdk.rpc;
 option go_package = "walletrpc";
 option swift_prefix = "";
 import "compact_formats.proto";
+import "google/api/annotations.proto";
 
 // A BlockID message contains identifiers to select a block: a height or a
 // hash. If the hash is present it takes precedence.
@@ -64,8 +65,13 @@ message TransparentAddressBlockFilter {
 }
 
 service CompactTxStreamer {
-    // Compact Blocks
-    rpc GetLatestBlock(ChainSpec) returns (BlockID) {}
+    rpc GetLatestBlock(ChainSpec) returns (BlockID) {
+                option (google.api.http) = {
+                  post: "/v1/zcashd/getlatestblock"
+                  body: "*"
+                };
+              
+    }
     rpc GetBlock(BlockID) returns (CompactBlock) {}
     rpc GetBlockRange(BlockRange) returns (stream CompactBlock) {}
 

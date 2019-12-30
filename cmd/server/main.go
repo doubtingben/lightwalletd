@@ -2,14 +2,18 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -100,6 +104,20 @@ func fileExists(filename string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+// grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC
+// connections or otherHandler otherwise. Copied from cockroachdb.
+func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO(tamird): point to merged gRPC code rather than a PR.
+		// This is a partial recreation of gRPC's internal checks https://github.com/grpc/grpc-go/pull/514/files#diff-95e9a25b738459a2d3030e1e6fa2a718R61
+		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+			grpcServer.ServeHTTP(w, r)
+		} else {
+			otherHandler.ServeHTTP(w, r)
+		}
+	})
 }
 
 func main() {
@@ -217,8 +235,13 @@ func main() {
 		}).Fatal("couldn't create backend")
 	}
 
+	mux := http.NewServeMux()
+
 	// Register service
 	walletrpc.RegisterCompactTxStreamerServer(server, service)
+	ctx := context.Background()
+	gwmux := runtime.NewServeMux()
+	walletrpc.RegisterCompactTxStreamerHandlerFromEndpoint(ctx, gwmux, opts.bindAddr, []grpc.DialOption{})
 
 	// Start listening
 	listener, err := net.Listen("tcp", opts.bindAddr)
@@ -228,6 +251,16 @@ func main() {
 			"error":     err,
 		}).Fatal("couldn't create listener")
 	}
+
+	srv := &http.Server{
+		Addr:    opts.bindAddr,
+		Handler: grpcHandlerFunc(server, mux),
+		TLSConfig: &tls.Config{
+			NextProtos: []string{"h2"},
+		},
+	}
+
+	err = srv.Serve(tls.NewListener(listener, srv.TLSConfig))
 
 	// Signal handler for graceful stops
 	signals := make(chan os.Signal, 1)
@@ -241,7 +274,6 @@ func main() {
 	}()
 
 	log.Infof("Starting gRPC server on %s", opts.bindAddr)
-
 	err = server.Serve(listener)
 	if err != nil {
 		log.WithFields(logrus.Fields{
