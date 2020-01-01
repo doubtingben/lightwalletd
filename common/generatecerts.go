@@ -1,8 +1,8 @@
 package common
 
 import (
-	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -17,8 +17,8 @@ import (
 // GenerateCerts create self signed certificate for local development use
 func GenerateCerts() (cert *tls.Certificate) {
 
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
-	publicKey := privKey.Public().(ed25519.PublicKey)
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	publicKey := &privKey.PublicKey
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
@@ -68,7 +68,6 @@ func GenerateCerts() (cert *tls.Certificate) {
 	keyPEM := pem.EncodeToMemory(&pem.Block{
 		Type: "RSA PRIVATE KEY", Bytes: privBytes,
 	})
-	fmt.Printf("%s\n", keyPEM)
 
 	// Create a TLS cert using the private key and certificate
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
