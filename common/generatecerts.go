@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"net"
 	"time"
 )
 
@@ -39,16 +38,8 @@ func GenerateCerts() (cert *tls.Certificate) {
 		BasicConstraintsValid: true,
 	}
 
-	hosts := []string{
-		"localhost",
-	}
-	for _, h := range hosts {
-		if ip := net.ParseIP(h); ip != nil {
-			template.IPAddresses = append(template.IPAddresses, ip)
-		} else {
-			template.DNSNames = append(template.DNSNames, h)
-		}
-	}
+	// List of hostnames and IPs for the cert
+	template.DNSNames = append(template.DNSNames, "localhost")
 
 	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey, privKey)
 	if err != nil {
