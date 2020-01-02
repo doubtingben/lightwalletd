@@ -1,0 +1,10 @@
+greeting: hola
+subject: Ben
+bind-addr: 1.1.1.1:9067
+tls-cert: /secrets/cert.pem
+tls-key: /secrets/cert.key
+log-level: 5
+log-file: /dev/stdout
+zcash-conf-path: /srv/zcashd/zcash.conf
+very-insecure: True
+cache-size: 900
