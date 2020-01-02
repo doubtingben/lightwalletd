@@ -1,5 +1,3 @@
-greeting: hola
-subject: Ben
 bind-addr: 1.1.1.1:9067
 tls-cert: /secrets/cert.pem
 tls-key: /secrets/cert.key
